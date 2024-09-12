@@ -1,0 +1,137 @@
+#pragma version 10
+
+smart_contracts.hello_world.contract.HelloWorld.approval_program:
+    txn NumAppArgs
+    bz main_bare_routing@7
+    method "save_name_on_boxes(string,pay)void"
+    method "get_name_on_box()string"
+    method "get_mbr_calc()uint64"
+    txna ApplicationArgs 0
+    match main_save_name_on_boxes_route@2 main_get_name_on_box_route@3 main_get_mbr_calc_route@4
+    err // reject transaction
+
+main_save_name_on_boxes_route@2:
+    txn OnCompletion
+    !
+    assert // OnCompletion is NoOp
+    txn ApplicationID
+    assert // is not creating
+    txna ApplicationArgs 1
+    txn GroupIndex
+    int 1
+    -
+    dup
+    gtxns TypeEnum
+    int pay
+    ==
+    assert // transaction type is pay
+    callsub save_name_on_boxes
+    int 1
+    return
+
+main_get_name_on_box_route@3:
+    txn OnCompletion
+    !
+    assert // OnCompletion is NoOp
+    txn ApplicationID
+    assert // is not creating
+    callsub get_name_on_box
+    byte 0x151f7c75
+    swap
+    concat
+    log
+    int 1
+    return
+
+main_get_mbr_calc_route@4:
+    txn OnCompletion
+    !
+    assert // OnCompletion is NoOp
+    txn ApplicationID
+    assert // is not creating
+    callsub get_mbr_calc
+    itob
+    byte 0x151f7c75
+    swap
+    concat
+    log
+    int 1
+    return
+
+main_bare_routing@7:
+    txn OnCompletion
+    !
+    assert // reject transaction
+    txn ApplicationID
+    !
+    assert // is creating
+    int 1
+    return
+
+
+// smart_contracts.hello_world.contract.HelloWorld.save_name_on_boxes(user_name: bytes, mbr_pay: uint64) -> void:
+save_name_on_boxes:
+    proto 2 0
+    frame_dig -1
+    gtxns Sender
+    txn Sender
+    ==
+    assert
+    frame_dig -1
+    gtxns Receiver
+    global CurrentApplicationAddress
+    ==
+    assert
+    frame_dig -1
+    gtxns Amount
+    callsub get_box_mbr
+    ==
+    assert
+    txn Sender
+    byte 0x0002
+    frame_dig -2
+    concat
+    swap
+    byte "names_list"
+    swap
+    concat
+    dup
+    box_del
+    pop
+    swap
+    box_put
+    retsub
+
+
+// smart_contracts.hello_world.contract.HelloWorld.get_box_mbr() -> uint64:
+get_box_mbr:
+    proto 0 1
+    int 32100
+    retsub
+
+
+// smart_contracts.hello_world.contract.HelloWorld.get_name_on_box() -> bytes:
+get_name_on_box:
+    proto 0 1
+    byte "names_list"
+    txn Sender
+    concat
+    box_get
+    assert // check self.names_list entry exists
+    dup
+    int 0
+    extract_uint16
+    swap
+    dup
+    len
+    swap
+    cover 2
+    substring3
+    retsub
+
+
+// smart_contracts.hello_world.contract.HelloWorld.get_mbr_calc() -> uint64:
+get_mbr_calc:
+    proto 0 1
+    callsub get_box_mbr
+    retsub
